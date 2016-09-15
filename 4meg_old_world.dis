@@ -1,0 +1,12 @@
+ROM_BASE = 0x40800000 ;NO IDEA why. This is where SheepShaver maps this, and then it jumps into 0x310000 and I have no idea WHY, but that does seem to be where the PPC ROM expects things to be
+ROM_BASE + 0x310000: bl ROM_BASE + 0x3152D0 ;Don't know exactly how or why the entry point is here 
+...                                         ;because I can't find PPC startup info, but here it is nonetheless
+...                                         ;anyhow, important to note here that the 'bl' instruction
+...                                         ;places the address following the 'bl' instruction (that is,
+...                                         ;the return address) into the link register
+...                                         
+ROM_BASE + 0x3152D0: mflr r12               ;Move link register value into r12
+ROM_BASE + 0x3152D4: bl ROM_BASE + 0x3152E4 ;Another branch-and-link.
+...
+ROM_BASE + 0x3152E4: mflr r7                ;Save that return value from the branch again, this time into r7
+ROM_BASE + 0x3152E8: mtlr r12               ;Load the return value of that very first branch back into the link reg
