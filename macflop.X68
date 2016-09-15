@@ -13,102 +13,87 @@
 *-----------------------------------------------------------
 * labels must start in first column
 
-START   ORG $1000       the program will load into address $1000
-    
-    move.b  #3,d1       put 3 in low byte of data register D1
-    add.b   #5,d1       add 5 to low byte of data register D1
-* D1 contains 8 in its low byte
+*START   ORG $0       the program will load into address $1000
+ ** HERES WHERE THE MACFLOP WORK STARTS **
+*bbID            dc.w $4C4B *Macintosh volume magic number
+*bbEntry         dc.l $60000086 *68k instruction to jump to the code following this header
+*bbVersion       dc.w
+*bbPageFlags     dc.w
+*bbSysName       dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbShellName     dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbDbg1Name      dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbDbg2Name      dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbScreenName    dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbHelloName     dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbScrapName     dc.b 'Noth'
+*                dc.b 'ing'
+*                dc.b $0,$0,$0,$0,$0,$0,$0,$0
+*bbCntFCBs       dc.w
+*bbCntEvts       dc.w
+*bb128KSHeap     dc.l
+*bb256KSHeap     dc.l
+*bbSysHeapSize   dc.l
+*filler:         dc.w *It seems these are ignores on the 7.0.1 floppies
+*bbSysHeapExtra: dc.w
+*bbSysHeapFract: dc.l
 
-    move.w  #512,d2     put 512 in low word of data register D2
-    add.w   d1,d2       add contents of low word in D1 to D2
-    move.w  d2,sum2     write low word of D2 to memory location sum2
-* D2 contains 520 in its low word (16 bits)
+BOOTCODE ORG $8A
 
-    move.l  #67500,d3   put 67,500 in data register D3
-    add.w   sum2,d3     add contents of sum2 to D3
-* D3 contains 68020 as a 32 bit number
+screen_base_glob EQU $00000824
+screen_width_glob EQU $00000106
+BII_BREAK_OP EQU $7101
 
-* Display the results in D1
-    move    #14,d0      load task number into D0
-* task number 14 is used to display the NULL terminated string at (A1) without new line
-* see Help/Simulator IO for a complete list of task numbers
-    lea     textD1,a1   load address of string to display into A1
-    trap    #15         trap #15 activates input/output task
+*we're going to try just dumping some junk into the screen buffer
 
-    move    #3,d0       task number 3 into D0
-* task number 3 is used to display the contents of D1.L as a number
-    trap    #15         display number in D1.l
+     move.l screen_base_glob,a0
+     move.l #0,d2
+     move.w screen_width_glob,d2
+     *We assume a 1bpp display here and will be writing a longword at a time.
+     *At 1bpp, a longword = 32 pixels. Therefore, we must divide our screen
+     *width by 32 to get 'screen longword width'. 32 = 2^5, so we can just rsh 5
+     lsr.l #2,d2
+     move.l #0,d0 *width counter
+     move.l #0,d1 *height counter
+     move.l #$FF00FF00,d3 *fill 'color'
+     *dc.w BII_BREAK_OP *Special basilisk II op for triggering a halt and reg dump
+     *we could do the bit below in a more straightforward fashion if we just calculated
+     *the line width in longwords multiplied by 50 (the height we want), but FUCK THAT
+top
+     move.l d3,(a0)+
+     *not.l d3
+     add.l #1,d0
+     cmp.l d2,d0 *check to see if we've hit the end of the row
+     beq.s next_row
+     bra.s top
+next_row
+     *not.l d3 *invert the row color
+     move.l #0,d0 *clear the column counter
+     add.l #1,d1 *increase the row counter
+     cmp.l #50,d1
+     beq.s here
+     bra.s top
 
-    bsr     newLine
+here bra.s here
 
-* Display D2
-    move    #14,d0      task number 14 (display null string)
-    lea     textD2,a1   address of string
-    trap    #15         display it
-    move.l  d2,d1       put d2 into d1
-    move    #3,d0       task number 3 (display number in D0)
-    trap    #15         display it
-    bsr     newLine
+*Looks like we're going to want to check out the toolbox function GetMainDevice which should supply us
+*with a GDevice handle from whence we can discern some details about the video device
+*Either way, I've found that the most useful information about screen details seems to be in
+*Quickdraw Imaging chapter 5
 
-* Display D3
-    move    #14,d0      task number 14 (display null string)
-    lea     textD3,a1   address of string
-    trap    #15         display it
-    move.l  d3,d1       put d3 into d1
-    move    #3,d0       task number 3 (display number in D0)
-    trap    #15         display it
-    bsr     newLine
-
-* Display end message
-    move    #14,d0      task number 14 (display null string)
-    lea     textEnd,a1  address of string
-    trap    #15         display it
-    
-* Stop execution
-    SIMHALT
-
-    
-*------------------------------------
-* Subroutine to display Carriage Return and Line Feed
-newLine movem.l d0/a1,-(a7) push d0 & a1
-    move    #14,d0      task number into D0
-    lea     crlf,a1     address of string
-    trap    #15         display return, linefeed
-    movem.l (a7)+,d0/a1 restore d0 & a1
-    rts                 return
-
-
-*------------------------------------
-* Variable storage and strings
-* ds (define storage) is used to reserve memory for variables
-* dc (define constant) is used to place data in memory
-** HERES WHERE THE MACFLOP WORK STARTS **
-bbID            ds.w $4C4B *Macintosh volume magic number
-bbEntry         ds.l $60000086 *68k instruction to jump to the code following this header
-bbVersion       ds.w
-bbPageFlags     ds.w
-bbSysName       ds.b '               ' *string15
-bbShellName     ds.b '               ' *string15
-bbDbg1Name      ds.b '               ' *string15
-bbDbg2Name      ds.b '               ' *string15
-bbScreenName    ds.b '               ' *string15
-bbHelloName     ds.b '               ' *string15
-bbScrapName     ds.b '               ' *string15
-bbCntFCBs       ds.w
-bbCntEvts       ds.w
-bb128KSHeap     ds.l
-bb256KSHeap     ds.l
-bbSysHeapSize   ds.l
-filler:         ds.w
-bbSysHeapExtra: ds.w
-bbSysHeapFract: ds.l
-
-    END     START   end of program with start address specified
+    END     BOOTCODE   end of program with start address specified
 
 
 
 
-*~Font name~Courier New~
-*~Font size~10~
-*~Tab type~1~
-*~Tab size~4~
