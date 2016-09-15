@@ -91,6 +91,10 @@ here bra.s here
 *with a GDevice handle from whence we can discern some details about the video device
 *Either way, I've found that the most useful information about screen details seems to be in
 *Quickdraw Imaging chapter 5
+*UPDATE: According to chapter 5, the pointer to the currently active GDevice is stored in the global
+*variable TheGDevice, which, according to the almanac, is at 0CC8. So what we need to do to get our 
+*screen information is get the PixMap for the handle held in (*TheGDevice).gdPMap, which is the PixMap
+*struct representing the details of the GDevice (should have color format, dimensions, etc) see page 5-15 of imaging
 
     END     BOOTCODE   end of program with start address specified
 
