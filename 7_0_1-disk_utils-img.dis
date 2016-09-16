@@ -1,0 +1,93 @@
+*Disassembly of 7.0.1 Disk Utilities floppy
+
+*Global variable addresses
+ROM85 EQU $0000028e *Negative if original macintosh 
+ROMBase EQU $000002ae *Base address of ROM (trap dispatcher)
+SysZone EQU $000002a6 *Starting address of system heap zone
+TheZone EQU $00000118 *Pointer to base of current heap zone
+SysResName EQU $00000ad8 *Name of system (resource) file (Pascal Str19 - ie: a length byte followed by 19 char bytes)
+FinderName EQU $000002e0 *Name of the finder file (Pascal Str15 / 16 bytes long)
+ScrapTag EQU $00000970 *Name of the scrap file (Pascal Str15 / 16 bytes long)
+ScrapName EQU $0000096C *Pointer to the global scrap file name 
+BootDrive EQU $00000210 *Drive number/directory ref # of the boot device
+
+*Floppy header variable addresses
+bbSysName $0000000a *The pascal string of the system file name (begins with a byte specifying string length)
+bbShellName $0000001a *The pascal string of the shell (finder) name
+bbScrapName $0000006a *The pascal string of the scrap file name
+bbSysHeapSize $00000086 *The system heap size that this OS is requesting
+bbCntEvts $0000007C *The OS requested event queue element count
+bbCntFCBs $0000007A *The OS requested number of FCBs(?) to allocate
+
+*System traps
+_SysError EQU $a9c9
+_SetAppBase EQU $a057
+_BlockMove EQU $a02e
+_MountVol EQU $a00f
+
+FLOPPY_START ORG $8a *This is the code we start executing as soon as a bootable floppy is detected
+
+    tst.w ROM85              *Test to see if we are on an original mac
+    bmi.s error_original_mac *And jump to failure code if so
+    
+    move.l ROMBase,a0        *This appears to be loading the 8th entry of the trap table into d1(?)
+    move.w 8(a0),d1 
+    
+    moveq #-2,d6             *Subtract two from d6 so that our first add starts us off at zero
+add_two
+    addq.w #2,d6             *Increment d6 by two (or one word width)
+    move.w ($da,PC,d6.w),d0  *Load value $da[d6] into d0 (since we don't know where we are, PC-relative addressing) 
+    beq.s sys_init           *If $da[d6] was zero, branch elsewhere
+    cmp.w d0,d1              *Check to see if the value we loaded from $da[d6] equals ROM[8] 
+    bne.s add_two            *If they didn't match, get the next index of $da[] and check again
+    
+    cmp.b #$76,d1            *See if the low byte of d1 == $76
+    bhi.s skip_heap_init     *if they are, skip setting up the start of application heap partition
+    
+    move.l SysZone,a0        *load the system heap base address into a0
+    add.l bbSysHeapSize(PC),a0  *add our requested heap size (pc relative) to the heap base 
+    dc.w _SetAppBase         *Have to check, but assumably this sets the start of application memory to just past the system heap
+    move.l SysZone,TheZone   *Set the active heap zone to the system heap base address
+
+skip_heap_init
+    add.w #4,sp              *Set up a 4-byte stack frame
+    move.l sp,d7             *Save the new top of the stack
+    bsr.s sys_init           *with the stack frame set up, jump into this subroutine
+                             *(this will decrement sp and put the return address in the stack frame)
+
+[!! stuff here ($c2-$fa) not yet disassembled !!]
+
+error_original_mac *this is equivalent to offset $fa in the floppy image
+
+    moveq #$62,d0 *Fire the system error A-Trap with error code 0x62
+    dc.w _SysError     
+
+
+sys_init 
+
+    lea bbSysName(PC),a0     *Set absolute address of system file name in floppy header to transfer source
+    lea SysResName,a1        *Set the global system file name string as transfer destination
+    moveq #$10,d0            *Set bytes to transfer to 16
+    dc.w _BlockMove          *Write floppy system file name into global variable
+    
+    lea bbShellName(PC),a0   *Set absolute address of finder file name in floppy header to transfer source
+    lea FinderName,a1        *Set the global finder file name string as transfer destination
+    moveq #$10,d0            *Set bytes to transfer to 16
+    dc.w _BlockMove          *Write floppy finder file name into global variable
+
+    lea bbScrapName(PC),a0   *Set absolute address of scrap file name in floppy header to transfer source
+    lea ScrapTag,a1          *Set the global scrap file name string as transfer destination
+    move.l a1,ScrapName      *Make sure the global pointer to the scrap file name string is pointed to ScrapTag
+    moveq #$10,d0            *Set bytes to transfer to 16
+    dc.w _BlockMove          *Write floppy scrap file name into global variable
+
+    move.w bbCntEvts(PC),d0   *Set d0 to the event queue element count from the floppy header via PC-addressing
+    dc.w $a06d                *Presumably the trap for setting the event queue element count, but can't seem to find docs
+    
+    move.w bbCntFCBs(PC),d0   *Set d0 to the FCB allocation count from the floppy header via PC-addressing
+    dc.w $a06c                *Again, undocumented, but presumably something like _AllocFCBs
+
+    move.l d7,a0              *Load the old stack pointer into a0 v-this has to be something to do with the argument stack 
+    move.w BootDrive,$16(a0)  *Save the boot drive number into the stack + $16 (why is a mystery)
+    dc.w _MountVol            *Call MountVol, presumably to mount this boot drive
+    bne.s 0x00000018e         *Pick up here ($138), but looks like we're going to error handle if we can't mount the boot volume 
