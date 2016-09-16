@@ -82,67 +82,62 @@ BII_BREAK_OP EQU $7101
      *This could all probably be done way easier using offset addressing
      *to directly load struct entries from the struct pointer
      *Dereference the MainDevice pointer
-     move.l MainDevice,a0     
-     
-          dc.w BII_BREAK_OP
-     
+     move.l MainDevice,a0
+     move.l (a0),a0 *Handles, as it turns out, are pointers-to-pointers!     
+          
      *Increase the pointer to point at the gdPMap entry
-     add #gdPMap_offset,a0     
+     add.l #gdPMap_offset,a0     
      *Load the #gdPMap pointer value
-     move.l (a0),a0     *This is some crazy high number at the top of memory for some reason, which causes the load below to crash
-                        *I'm clearly not dereferencing things correctly, because whether I do this starting with the value in TheGDevice
-                        *OR MainDevice, I get the exact same values. If both of those variables contain the same info, that definitely
-                        *means they're not junk and THAT means that I'm definitely doing something wrong
-                        *(both return the pointer as 211c for the quadra rom I'm using)
+     move.l (a0),a0 *Get handle     
+     move.l (a0),a0 *Get pointer
      *Set a1 to the screen base addr
      move.l a0,a1
-     add #pmBaseAddr_offset,a1
+     add.l #pmBaseAddr_offset,a1
      move.l (a1),a1    
      *Set a2 to the bounds rect address
      move.l a0,a2
-     add #pmBounds_offset,a2
+     add.l #pmBounds_offset,a2
      *Set a3 to the address of the bound top
      move.l a2,a3
-     add #rTop_offset,a3
+     add.l #rTop_offset,a3
      *Load the top value into d0
-     eor d0,d0
+     eor.l d0,d0
      move.w (a3),d0
      *Set a3 to the address of the bound bottom
      move.l a2,a3
-     add #rBottom_offset,a3
+     add.l #rBottom_offset,a3
      *Load the bottom value into d1
-     eor d1,d1
+     eor.l d1,d1
      move.w (a3),d1
      *Subtract d0 from d1(bottom-top) and add one to get height in d0
      sub.w d0,d1
-     add.w #1,d1
      move.w d1,d0
      *Set a3 to the address of the bound left 
      move.l a2,a3
-     add #rLeft_offset,a3
+     add.l #rLeft_offset,a3
      *Load the left value into d1
      move.w (a3),d1
      *Set a3 to the address of the bound right
      move.l a2,a3
-     add #rRight_offset,a3
+     add.l #rRight_offset,a3
      *Load the right value into d2
-     eor d2,d2
+     eor.l d2,d2
      move.w (a3),d2
      *Subtract d1 from d2 (right-left) and add one to get width in d1
      sub.w d1,d2
-     add.w #1,d2
      move.w d2,d1
 
      *GET SCREEN PIXEL FORMAT INFO
      *Set a2 to the PixelType address
      move.l a0,a2
-     add #pmPixelType_offset,a2
+     add.l #pmPixelType_offset,a2
      *Load the PixelType into d2
      move.w (a2),d2
      *Set a2 to the PixelSize address
      move.l a0,a2
-     add #pmPixelSize_offset,a2
+     add.l #pmPixelSize_offset,a2
      *Load the PixelSize into d3
+     eor.l d3,d3
      move.w (a2),d3
      
      *Now a0=gdPMap address of the screen (TheGDevice)
@@ -152,7 +147,7 @@ BII_BREAK_OP EQU $7101
      *    d2=screen pixel type (0=indexed 16=direct)
      *    d3=screen pixel size (indexed=1,2,4,8bits direct=16,32bits)
      
-     dc.w BII_BREAK_OP
+     *dc.w BII_BREAK_OP
      
      *CALCULATE TOTAL SIZE OF SCREEN BUFFER
      move.l d1,d4
@@ -181,13 +176,17 @@ BII_BREAK_OP EQU $7101
      *FILL THE SCREEN TO ZERO (whatever that may be color-wise)
 draw_loop
      
-     move.l #0,(a1)+
+     move.l d5,d6
+     lsl.l #8,d6 *just to play with the screen effect
+     move.l d6,(a1)+
      add.l #1,d5
      cmp.l d5,d4 *check to see if we've hit the end of the row
      beq.s here
      bra.s draw_loop
      
-here bra.s here
+here
+     *dc.w BII_BREAK_OP
+     bra.s here
 
 *Looks like we're going to want to check out the toolbox function GetMainDevice which should supply us
 *with a GDevice handle from whence we can discern some details about the video device
@@ -200,6 +199,7 @@ here bra.s here
 
 
     END     BOOTCODE   end of program with start address specified
+
 
 
 
