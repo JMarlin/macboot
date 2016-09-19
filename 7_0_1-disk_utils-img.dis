@@ -33,6 +33,12 @@ FLOPPY_START ORG $8a *This is the code we start executing as soon as a bootable 
     move.l ROMBase,a0        *This appears to be loading the 8th entry of the trap table into d1(?)
     move.w 8(a0),d1 
     
+    *Here, it looks like we have a null-terminated string of word values at FLOPPY_BASE+$da which we are trying to match
+    *one by one to the value in ROM at ROMBase+8. If we get a match to the ROMBase+8 value, we go on to potentially set up
+    *the user heap base at the end of our requested system heap area and then we set up a stack frame and jump to the main
+    *initialization code. If we hit the end of the string without matching anything, we just skip directly to the init code.
+    *This would seem to probably be a check on the ROM version, meaning some don't need the call stack set up or some don't
+    *need the heap set up &c.
     moveq #-2,d6             *Subtract two from d6 so that our first add starts us off at zero
 add_two
     addq.w #2,d6             *Increment d6 by two (or one word width)
