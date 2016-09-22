@@ -140,6 +140,13 @@ BII_BREAK_OP EQU $7101
      eor.l d3,d3
      move.w (a2),d3
      
+     lea pixtype(pc),a3
+     move.w d2,(a3)
+     lea pixsize(pc),a3
+     move.w d3,(a3)
+     
+     move a1,a4
+     
      *Now a0=gdPMap address of the screen (TheGDevice)
      *    a1=screen buff address
      *    d0=screen height (pixels)
@@ -175,9 +182,9 @@ BII_BREAK_OP EQU $7101
      
      *FILL THE SCREEN TO ZERO (whatever that may be color-wise)
 draw_loop
-     
-     move.l d5,d6
-     lsl.l #8,d6 *just to play with the screen effect
+     *move.l d5,d6
+     *lsl.l #8,d6 *just to play with the screen effect
+     move.l #$FFFFFFFF,d6
      move.l d6,(a1)+
      add.l #1,d5
      cmp.l d5,d4 *check to see if we've hit the end of the row
@@ -185,9 +192,130 @@ draw_loop
      bra.s draw_loop
      
 here
-     *dc.w BII_BREAK_OP
-     bra.s here
+     *Note: Looks like default font is 9px high
+     move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+     move.w #$000A,-(sp) *v: Integer  --  y coordinate to move to
+     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+     lea str(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #21,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText
 
+*quick attempt at converting hex byte to text     
+      move.w pixtype(pc),d0
+      lsr.w #8,d0
+      move.b d0,-(sp)
+      bsr.w translate_byte
+
+      move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$0014,-(sp) *v: Integer  --  y coordinate to move to
+      dc.w $A893 *_MoveTo to place our drawing cursor
+     
+      lea bytebuf(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #2,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText   
+     
+      move.w pixtype(pc),d0
+      move.b d0,-(sp)
+      bsr.w translate_byte
+
+      move.w #$0010,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$0014,-(sp) *v: Integer  --  y coordinate to move to
+      dc.w $A893 *_MoveTo to place our drawing cursor
+     
+      lea bytebuf(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #2,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText   
+     
+      move.w pixsize(pc),d0
+      lsr.w #8,d0
+      move.b d0,-(sp)
+      bsr.w translate_byte
+
+      move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$001E,-(sp) *v: Integer  --  y coordinate to move to
+      dc.w $A893 *_MoveTo to place our drawing cursor
+     
+      lea bytebuf(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #2,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText   
+     
+      move.w pixsize(pc),d0
+      move.b d0,-(sp)
+      bsr.w translate_byte
+
+      move.w #$0010,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$001E,-(sp) *v: Integer  --  y coordinate to move to
+      dc.w $A893 *_MoveTo to place our drawing cursor
+     
+     lea bytebuf(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #2,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText   
+
+     
+ret2 eor.l d5,d5
+     move a4,a1
+
+hang
+     *dc.w BII_BREAK_OP
+     bra.s hang
+
+pixtype dc.w 0
+pixsize dc.w 0
+str dc.b 'Welcome to Macintosh.'
+bytebuf dc.b '00'
+
+print_bytebuf
+     move.l (sp)+,d4
+     lea bytebuf(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #2,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText   
+     move.l d4,-(sp)
+     rts
+
+translate_byte
+     move.l (sp)+,d4
+     move.b (sp)+,d0
+     move.b d0,d1
+     lsr.b #4,d1
+     and.b #$0F,d1
+     cmp.b #$09,d1
+     bgt.s tr1_hi
+     add.b #'0',d1
+     bra.s tr1_write
+tr1_hi
+     sub.b #$0A,d1
+     add.b #'A',d1
+tr1_write
+     lea bytebuf(PC),a0
+     move.b d1,(a0)+
+tr2
+     move.b d0,d1
+     and.b #$0F,d1
+     cmp.b #$09,d1
+     bgt.s tr2_hi
+     add.b #'0',d1
+     bra.s tr2_write
+tr2_hi
+     sub.b #$0A,d1
+     add.b #'A',d1
+tr2_write
+     move.b d1,(a0)
+     move.l d4,-(sp)
+     rts
+     
 *Looks like we're going to want to check out the toolbox function GetMainDevice which should supply us
 *with a GDevice handle from whence we can discern some details about the video device
 *Either way, I've found that the most useful information about screen details seems to be in
@@ -197,10 +325,52 @@ here
 *screen information is get the PixMap for the handle held in (*TheGDevice).gdPMap, which is the PixMap
 *struct representing the details of the GDevice (should have color format, dimensions, etc) see page 5-15 of imaging
 
+*     move.w pixtype(pc),d0
+*     lsr.w #8,d0
+*     move.b d0,-(sp)
+*     bsr.s translate_byte
+
+*     move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+*     move.w #$0014,-(sp) *v: Integer  --  y coordinate to move to
+*     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+*     bsr.s print_bytebuf 
+     
+*     move.w pixtype(pc),d0
+*     move.b d0,-(sp)
+*     bsr.s translate_byte
+
+*     move.w #$0008,-(sp) *h: Integer  --  x coordinate to move to
+*     move.w #$0014,-(sp) *v: Integer  --  y coordinate to move to
+*     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+*     bsr.s print_bytebuf 
+     
+*     move.w pixsize(pc),d0
+*     lsr.w #8,d0
+*     move.b d0,-(sp)
+*     bsr.s translate_byte
+
+*     move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+*     move.w #$001E,-(sp) *v: Integer  --  y coordinate to move to
+*     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+*     bsr.s print_bytebuf 
+     
+*     move.w pixsize(pc),d0
+*     move.b d0,-(sp)
+*     bsr.s translate_byte
+
+*     move.w #$0008,-(sp) *h: Integer  --  x coordinate to move to
+*     move.w #$001E,-(sp) *v: Integer  --  y coordinate to move to
+*     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+*     bsr.s print_bytebuf
 
     END     BOOTCODE   end of program with start address specified
 
 
+*NOTE: For some reason, trying to put the DrawText function into a subroutine is really fucking things up, and I'm still note sure why
 
 
 
