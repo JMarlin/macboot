@@ -194,13 +194,35 @@ draw_loop
 here
      *Note: Looks like default font is 9px high
      move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
-     move.w #$000A,-(sp) *v: Integer  --  y coordinate to move to
+     move.w #$000C,-(sp) *v: Integer  --  y coordinate to move to
      dc.w $A893 *_MoveTo to place our drawing cursor
      
      lea str(pc),a0 
      move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
      clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
      move.w #21,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText
+     
+     *Note: Looks like default font is 9px high
+     move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+     move.w #$0018,-(sp) *v: Integer  --  y coordinate to move to
+     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+     lea tstr(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #10,-(sp) *byteCount: Integer -- number of bytes of string to draw
+     dc.w $A885 *_DrawText
+
+     *Note: Looks like default font is 9px high
+     move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
+     move.w #$0024,-(sp) *v: Integer  --  y coordinate to move to
+     dc.w $A893 *_MoveTo to place our drawing cursor
+     
+     lea sstr(pc),a0 
+     move.l a0,-(sp) *textBuf: Ptr  --  pointer to beginning of string 
+     clr.w -(sp) *firstByte: Integer  --  offset in the string at which to start printing
+     move.w #10,-(sp) *byteCount: Integer -- number of bytes of string to draw
      dc.w $A885 *_DrawText
 
 *quick attempt at converting hex byte to text     
@@ -209,8 +231,8 @@ here
       move.b d0,-(sp)
       bsr.w translate_byte
 
-      move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
-      move.w #$0014,-(sp) *v: Integer  --  y coordinate to move to
+      move.w #$0058,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$0018,-(sp) *v: Integer  --  y coordinate to move to
       dc.w $A893 *_MoveTo to place our drawing cursor
      
       lea bytebuf(pc),a0 
@@ -223,8 +245,8 @@ here
       move.b d0,-(sp)
       bsr.w translate_byte
 
-      move.w #$0010,-(sp) *h: Integer  --  x coordinate to move to
-      move.w #$0014,-(sp) *v: Integer  --  y coordinate to move to
+      move.w #$0068,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$0018,-(sp) *v: Integer  --  y coordinate to move to
       dc.w $A893 *_MoveTo to place our drawing cursor
      
       lea bytebuf(pc),a0 
@@ -238,8 +260,8 @@ here
       move.b d0,-(sp)
       bsr.w translate_byte
 
-      move.w #$0000,-(sp) *h: Integer  --  x coordinate to move to
-      move.w #$001E,-(sp) *v: Integer  --  y coordinate to move to
+      move.w #$0058,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$0024,-(sp) *v: Integer  --  y coordinate to move to
       dc.w $A893 *_MoveTo to place our drawing cursor
      
       lea bytebuf(pc),a0 
@@ -252,8 +274,8 @@ here
       move.b d0,-(sp)
       bsr.w translate_byte
 
-      move.w #$0010,-(sp) *h: Integer  --  x coordinate to move to
-      move.w #$001E,-(sp) *v: Integer  --  y coordinate to move to
+      move.w #$0068,-(sp) *h: Integer  --  x coordinate to move to
+      move.w #$0024,-(sp) *v: Integer  --  y coordinate to move to
       dc.w $A893 *_MoveTo to place our drawing cursor
      
      lea bytebuf(pc),a0 
@@ -273,6 +295,8 @@ hang
 pixtype dc.w 0
 pixsize dc.w 0
 str dc.b 'Welcome to Macintosh.'
+tstr dc.b 'pixelType:'
+sstr dc.b 'pixelSize:'
 bytebuf dc.b '00'
 
 print_bytebuf
@@ -370,7 +394,8 @@ tr2_write
     END     BOOTCODE   end of program with start address specified
 
 
-*NOTE: For some reason, trying to put the DrawText function into a subroutine is really fucking things up, and I'm still note sure why
+
+
 
 
 
