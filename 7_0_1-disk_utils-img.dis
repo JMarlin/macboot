@@ -24,6 +24,10 @@ _SysError EQU $a9c9
 _SetAppBase EQU $a057
 _BlockMove EQU $a02e
 _MountVol EQU $a00f
+_HFSDispatch EQU $a260
+_SetVol EQU $a015
+_InitResources EQU $a995
+_GetResource EQU $a9a0
 
 FLOPPY_START ORG $8a *This is the code we start executing as soon as a bootable floppy is detected
 
@@ -96,4 +100,46 @@ sys_init
     move.l d7,a0              *Load the old stack pointer into a0 v-this has to be something to do with the argument stack 
     move.w BootDrive,$16(a0)  *Save the boot drive number into the stack + $16 (why is a mystery)
     dc.w _MountVol            *Call MountVol, presumably to mount this boot drive
-    bne.s 0x00000018e         *Pick up here ($138), but looks like we're going to error handle if we can't mount the boot volume 
+    bne.s sys_init_return     *exit the function if we couldn't mount ourself
+    
+    clr.l 18(a0)             *clear a long at old sp + 18
+    clr.w 28(a0)             *clear a word at old sp + 28
+    dc.w $A207               *so this is clearly some kind of toolbox trap call, but I can't seem to figure out what
+    bne.s sys_rename_me_186  *guessing that if the trap failed, we must skip over the following code
+    
+    move.l 94(a0),a4         *moving some things around on the stack?    
+    move.l 90(a0),48(a0)
+    beq.s sys_rename_me_162  *if one of those values was zero, we skip over some of the next code
+    
+    move.l #'ERIK',28(a0)    *A type label of unknown make
+    moveq #1,d0              *Maybe a resource ID or something?
+    dc.w _HFSDispatch        *According to the docs, _HFSDispatch with a 'selector' of 1 == PBOpenWD, so it looks like we're setting the working directory
+    bne.s sys_rename_me_186  *According to the docs, noErr is 0, so this is definitely a fail jump
+    
+    dc.w _SetVol             *Setting the default volume/directory to the same thing as the working directory -- ostensibly this disk
+
+sys_rename_me_162    
+    subq.w #2,sp             *Shifting the stack pointer down by two for some purpose
+    dc.w _InitResources      *Set up both the ROM resources and load the resources from the System file
+    tst.w (sp)+              *Pop and check the return value
+    bmi.s                    *If it's negative (error) jump ahead
+    
+    subq.w #4,sp             *Add a longword of space to the stack
+    move.l #'boot',-(sp)     *Push the resource type
+    move.w #2,-(sp)          *Push the resource id, 2
+    bc.w _GetResource        *Get the resource
+    move.l (sp)+,d0          *Save the return value (should be a res handle)
+    beq.s sys_init_return    *I think do an error jump if we got a null handle
+    
+    addq.w #4,sp             *Give another longword of stack space
+    move.l d0,a3             *Dereference the res handle
+    move.l (a3),a0
+
+***** PICK UP HERE @$182
+
+sys_rename_me_184
+
+sys_rename_me_186
+    
+sys_init_return
+    rts
