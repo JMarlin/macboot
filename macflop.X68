@@ -1,14 +1,4 @@
-*-----------------------------------------------------------
-* Title         : Tutorial 1 for EASy68k
-* Written by    : Chuck Kelly
-* Date Created  : Feb-05-2003
-* Dec-25-2012 by CK, Uses SIMHALT
-* Description   : A program that adds two bytes, two words, two long words
-*                 then displays the results. Demonstrates use of trap #15 for display
-*                 and subroutine.
-* 
-* This program is public domain.
-*
+
 * Note! asterisk '*' in first column for comments
 *-----------------------------------------------------------
 * labels must start in first column
